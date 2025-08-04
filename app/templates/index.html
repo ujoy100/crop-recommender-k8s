@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crop Recommender</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 60%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+        h1, h3 {
+            color: teal;
+        }
+        .form-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+        .form-group {
+            flex: 1;
+            margin-right: 10px;
+            min-width: 150px;
+        }
+        .form-group:last-child {
+            margin-right: 0;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            color: white;
+            background-color: teal;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        .btn:hover {
+            background-color: darkcyan;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e0ffe0;
+            border: 1px solid #d0f0d0;
+            border-radius: 4px;
+        }
+
+        /* === Loader styles === */
+        #loader {
+            position: fixed;
+            z-index: 9999;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .spinner {
+            border: 8px solid #f3f3f3;
+            border-top: 8px solid teal;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0%   { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- 🔄 Loader -->
+    <div id="loader">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container">
+        <h1>Crop Recommender</h1>
+        <h3>Using Random Forest: The Best Model</h3>
+        <img src="{{ url_for('static', filename='cc.jpg') }}" alt="Crop Recommendation" style="width:100%; height:auto; border-radius:8px;">
+
+        <form method="post">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sn">NITROGEN (N)</label>
+                    <input type="number" id="sn" name="sn" step="0.01" min="0" max="150" required tabindex="1">
+                </div>
+                <div class="form-group">
+                    <label for="phu">HUMIDITY</label>
+                    <input type="number" id="phu" name="phu" step="0.01" min="0" max="100" required tabindex="5">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sp">PHOSPHOROUS (P)</label>
+                    <input type="number" id="sp" name="sp" step="0.01" min="0" max="150" required tabindex="2">
+                </div>
+                <div class="form-group">
+                    <label for="pPh">pH</label>
+                    <input type="number" id="pPh" name="pPh" step="0.01" min="0" max="14" required tabindex="6">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="pk">POTASSIUM (K)</label>
+                    <input type="number" id="pk" name="pk" step="0.01" min="0" max="210" required tabindex="3">
+                </div>
+                <div class="form-group">
+                    <label for="pr">RAINFALL</label>
+                    <input type="number" id="pr" name="pr" step="0.01" min="0" max="300" required tabindex="7">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="pt">TEMPERATURE</label>
+                    <input type="number" id="pt" name="pt" step="0.01" min="0" max="50" required tabindex="4">
+                </div>
+                <div class="form-group"><!-- empty spacing --></div>
+            </div>
+            <button type="submit" class="btn" tabindex="8">Classify</button>
+        </form>
+
+        {% if result %}
+        <div class="result">
+            <p><strong>{{ result }}</strong></p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        window.addEventListener("load", () => {
+            document.getElementById("loader").style.display = "none";
+        });
+    </script>
+</body>
+</html>

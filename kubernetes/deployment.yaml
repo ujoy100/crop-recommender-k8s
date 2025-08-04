@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: crop-recommender
+  labels:
+    app: crop-recommender
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: crop-recommender
+  template:
+    metadata:
+      labels:
+        app: crop-recommender
+    spec:
+      containers:
+        - name: crop-recommender
+          image: crop-recommender:k87   # Local test image
+          ports:
+            - containerPort: 5000
