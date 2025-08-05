@@ -1,11 +1,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: crop-recommender
+  name: crop-recommender-deployment
   labels:
     app: crop-recommender
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: crop-recommender
@@ -14,8 +14,15 @@ spec:
       labels:
         app: crop-recommender
     spec:
+      tolerations:
+        - key: "CriticalAddonsOnly"
+          operator: "Exists"
+        - key: "karpenter.sh/disrupted"
+          operator: "Exists"
+          effect: "NoSchedule"
       containers:
         - name: crop-recommender
-          image: crop-recommender:k87   # Local test image
+          image: 610495549917.dkr.ecr.eu-central-1.amazonaws.com/crop-recommender_k87:latest
           ports:
             - containerPort: 5000
+          imagePullPolicy: Always
