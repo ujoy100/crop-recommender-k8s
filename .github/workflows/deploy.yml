@@ -6,47 +6,59 @@ on:
       - main
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+    # 1. Checkout repository
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }}
+    # 2. Configure AWS credentials
+    - name: Configure AWS credentials
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: eu-central-1
 
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
+    # 3. Debug AWS Identity
+    - name: Debug AWS Identity
+      run: aws sts get-caller-identity
 
-      # ✅ NEW: Setup QEMU
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+    # 4. Login to Amazon ECR
+    - name: Login to Amazon ECR
+      run: |
+        aws ecr get-login-password --region eu-central-1 | docker login --username AWS --password-stdin 610495549917.dkr.ecr.eu-central-1.amazonaws.com
 
-      # ✅ NEW: Setup Docker Buildx
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
+    # 5. Enable Docker Buildx for multi-platform builds
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-      - name: Build, Tag, and Push Docker image to ECR
-        env:
-          IMAGE_URI: ${{ secrets.ECR_REPOSITORY }}
-        run: |
-          docker buildx build \
-            --platform linux/amd64 \
-            -t $IMAGE_URI:latest \
-            --push .
+    # 6. Build and Push Docker Image to ECR
+    - name: Build, Tag, and Push Docker image to ECR
+      run: |
+        IMAGE_URI=610495549917.dkr.ecr.eu-central-1.amazonaws.com/crop-recommender_k87:${{ github.sha }}
+        echo "IMAGE_URI=$IMAGE_URI" >> $GITHUB_ENV
 
-      - name: Update kubeconfig
-        run: |
-          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
+        docker buildx build \
+          --platform linux/amd64,linux/arm64 \
+          -t $IMAGE_URI \
+          --push .
 
-      - name: Deploy to EKS
-        run: |
-          kubectl set image deployment/${{ secrets.DEPLOYMENT_NAME }} \
-          crop-recommender=${{ secrets.ECR_REPOSITORY }}:latest
-          kubectl rollout status deployment/${{ secrets.DEPLOYMENT_NAME }}
+    # 7. Update kubeconfig to connect GitHub runner to EKS
+    - name: Update kubeconfig for EKS
+      run: |
+        aws eks update-kubeconfig --name crop-recommender-cluster --region eu-central-1
+
+    # 8. Deploy new image to EKS
+    - name: Deploy to EKS
+      run: |
+        kubectl set image deployment/crop-recommender-deployment \
+          crop-recommender=$IMAGE_URI --record
+
+    # 9. Verify Deployment
+    - name: Verify Deployment
+      run: |
+        kubectl rollout status deployment/crop-recommender-deployment
+        kubectl get pods -o wide
