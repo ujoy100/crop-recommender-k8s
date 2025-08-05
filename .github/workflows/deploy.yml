@@ -1,49 +1,52 @@
-name: CI/CD for Crop Recommender on EKS
+name: deploy
 
 on:
   push:
     branches:
-      - main  # Trigger on push to main branch
+      - main
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-    # 1️⃣ Checkout the repository
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    # 2️⃣ Configure AWS credentials
-    - name: Configure AWS credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-    # 3️⃣ Login to Amazon ECR
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
 
-    # 4️⃣ Build and push Docker image
-    - name: Build, Tag, and Push Docker image to ECR
-      run: |
-        IMAGE_URI=${{ secrets.ECR_REPOSITORY }}:latest
-        echo "Building and pushing $IMAGE_URI"
-        docker buildx build --platform linux/amd64,linux/arm64 -t $IMAGE_URI --push .
+      # ✅ NEW: Setup QEMU
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
 
-    # 5️⃣ Update kubeconfig for EKS
-    - name: Update kubeconfig
-      run: |
-        aws eks update-kubeconfig --region ${{ secrets.AWS_REGION }} --name ${{ secrets.EKS_CLUSTER_NAME }}
+      # ✅ NEW: Setup Docker Buildx
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
 
-    # 6️⃣ Deploy to EKS
-    - name: Deploy to EKS
-      run: |
-        kubectl set image deployment/${{ secrets.DEPLOYMENT_NAME }} \
-          crop-recommender=${{ secrets.ECR_REPOSITORY }}:latest \
-          -n ${{ secrets.K8S_NAMESPACE }}
-        kubectl rollout status deployment/${{ secrets.DEPLOYMENT_NAME }} -n ${{ secrets.K8S_NAMESPACE }}
+      - name: Build, Tag, and Push Docker image to ECR
+        env:
+          IMAGE_URI: ${{ secrets.ECR_REPOSITORY }}
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -t $IMAGE_URI:latest \
+            --push .
 
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER_NAME }} --region ${{ secrets.AWS_REGION }}
+
+      - name: Deploy to EKS
+        run: |
+          kubectl set image deployment/${{ secrets.DEPLOYMENT_NAME }} \
+          crop-recommender=${{ secrets.ECR_REPOSITORY }}:latest
+          kubectl rollout status deployment/${{ secrets.DEPLOYMENT_NAME }}
